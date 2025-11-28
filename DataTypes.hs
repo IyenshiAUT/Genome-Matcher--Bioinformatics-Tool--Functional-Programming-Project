@@ -1,47 +1,63 @@
+-- | DataTypes.hs - Core data types for genetic analysis
+-- Demonstrates Algebraic Data Types (ADTs) and type safety in Haskell
+
 module DataTypes (
+    -- * Core DNA Types
     Base(..),
     DNA,
+    -- * Mutation Analysis Types
     Mutation(..),
     RiskLevel(..),
+    -- * Patient Management Types
     Patient(..),
     AnalysisReport,
+    -- * Protein Analysis Types (Advanced)
     AminoAcid(..),
     Protein
 ) where
 
--- [Task 2.1] Core ADTs: Define Base, DNA, Mutation, and RiskLevel
--- The basic building block of DNA
+-- | DNA Base representation using Algebraic Data Types (ADT)
+-- Demonstrates: Sum types, pattern matching, type safety
 data Base = A | C | G | T 
     deriving (Show, Eq, Read, Enum)
 
+-- | DNA sequence as a list of bases
+-- Demonstrates: Type aliases, list processing
 type DNA = [Base]
 
--- [Task 2.1] (Advanced Extension): Amino Acids for Protein Translation
--- Represents the 20 standard amino acids + STOP codon
+-- | Amino acid representation for protein synthesis
+-- Demonstrates: Complex ADTs with multiple constructors
 data AminoAcid = 
-      Phe | Leu | Ser | Tyr | Cys | Trp | Pro | His | Gln | Arg | Ile | Met | Thr | Asn | Lys | Val | Ala | Asp | Glu | Gly | STOP
+      Phe | Leu | Ser | Tyr | Cys | Trp | Pro | His | Gln | Arg 
+    | Ile | Met | Thr | Asn | Lys | Val | Ala | Asp | Glu | Gly 
+    | STOP
     deriving (Show, Eq)
 
+-- | Protein sequence as a list of amino acids
 type Protein = [AminoAcid]
 
--- [Task 2.1] Representing a Genetic Mutation with severity
+-- | Genetic mutation representation using Record Syntax
+-- Demonstrates: Product types, record syntax, named fields
 data Mutation = Mutation {
-    position :: Int,
-    original :: Base,
-    current  :: Base,
-    severity :: RiskLevel
+    position :: Int,        -- Position in DNA sequence
+    original :: Base,       -- Original base in reference
+    current  :: Base,       -- Mutated base in patient
+    severity :: RiskLevel   -- Calculated severity level
 } deriving (Show)
 
--- [Task 2.1] Risk Levels ordered by severity
+-- | Risk assessment levels with ordering
+-- Demonstrates: Ordered ADTs, deriving type classes
 data RiskLevel = Benign | Low | Medium | High | Critical
     deriving (Show, Eq, Ord)
 
--- [Task 2.2] Records: Define Patient and AnalysisReport type aliases
+-- | Patient information using Record Syntax
+-- Demonstrates: Records, encapsulation of related data
 data Patient = Patient {
-    patientId :: String,
-    dnaSequence :: DNA
+    patientId :: String,    -- Patient identifier
+    dnaSequence :: DNA      -- Patient's DNA sequence
 } deriving (Show)
 
--- [Task 2.2] (Advanced): Updated Report type to include Protein sequence
--- (Patient ID, List of Mutations, Risk Score, Protein Chain)
+-- | Analysis report as a tuple
+-- Demonstrates: Product types, tuple usage
+-- Format: (Patient ID, Mutations Found, Risk Score, Protein Sequence)
 type AnalysisReport = (String, [Mutation], Double, Protein)
