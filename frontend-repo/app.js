@@ -25,8 +25,40 @@ class GenomeMatcher {
 
         // Analysis button
         document.getElementById('analyze-btn').addEventListener('click', () => {
+            console.log('Analyze button clicked!');
+            console.log('Reference data available:', !!this.referenceData);
+            console.log('Patient data count:', this.patientData.length);
             this.analyzeSequences();
         });
+        
+        // Add test button for debugging
+        setTimeout(() => this.addTestButton(), 100);
+    }
+
+    addTestButton() {
+        // Add test button for debugging
+        const testBtn = document.createElement('button');
+        testBtn.textContent = 'Test Results Display';
+        testBtn.style.margin = '10px';
+        testBtn.style.background = '#ff6b6b';
+        testBtn.style.color = 'white';
+        testBtn.style.border = 'none';
+        testBtn.style.padding = '10px';
+        testBtn.style.borderRadius = '5px';
+        testBtn.addEventListener('click', () => {
+            console.log('=== TESTING RESULTS DISPLAY ===');
+            const testResults = [{
+                patientName: 'Test Patient',
+                mutations: [{ position: 0, original: 'A', mutated: 'T', severity: 'High' }],
+                riskScore: 15.5,
+                riskLevel: 'High'
+            }];
+            this.displayResults(testResults);
+            const resultsSection = document.getElementById('results-section');
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        });
+        document.querySelector('.analysis-section').appendChild(testBtn);
     }
 
     async handleReferenceFile(file) {
@@ -83,26 +115,36 @@ class GenomeMatcher {
             { name: "Patient 3 (Multiple)", sequence: "ATCGATCGTTCGATCGAATA" }
         ];
 
+        console.log('Loading demo data...', { demoReference, demoPatients });
+
         this.referenceData = this.parseDNASequence(demoReference);
         this.patientData = demoPatients.map(p => ({
             name: p.name,
             sequence: this.parseDNASequence(p.sequence)
         }));
 
+        console.log('Demo data loaded:', { 
+            referenceData: this.referenceData, 
+            patientData: this.patientData 
+        });
+
         document.getElementById('reference-info').innerHTML = `
             <div class="file-success">
-                ✅ Demo reference loaded (${this.referenceData.length} bases)
+                Demo reference loaded (${this.referenceData.length} bases)
             </div>
         `;
 
         document.getElementById('patient-info').innerHTML = `
             <div class="file-success">
-                ✅ ${this.patientData.length} demo patients loaded
+                ${this.patientData.length} demo patients loaded
                 <ul style="margin-top: 10px; text-align: left;">
                     ${this.patientData.map(p => `<li>${p.name} (${p.sequence.length} bases)</li>`).join('')}
                 </ul>
             </div>
         `;
+
+        // Enable the analyze button since we now have data
+        this.checkAnalysisReady();
 
         this.checkAnalysisReady();
     }
@@ -118,14 +160,24 @@ class GenomeMatcher {
         const analyzeBtn = document.getElementById('analyze-btn');
         if (this.referenceData && this.patientData.length > 0) {
             analyzeBtn.disabled = false;
-            analyzeBtn.textContent = '🔍 Analyze DNA Sequences';
+            analyzeBtn.textContent = 'Analyze DNA Sequences';
         }
     }
 
     async analyzeSequences() {
+        console.log('=== Starting analysis ===');
+        console.log('Reference data:', this.referenceData ? this.referenceData.length + ' bases' : 'null');
+        console.log('Patient data:', this.patientData.length + ' patients');
+        
         const analyzeBtn = document.getElementById('analyze-btn');
         const spinner = document.getElementById('spinner');
         const resultsSection = document.getElementById('results-section');
+        
+        console.log('DOM elements found:', {
+            analyzeBtn: !!analyzeBtn,
+            spinner: !!spinner,
+            resultsSection: !!resultsSection
+        });
         const resultsContainer = document.getElementById('results-container');
 
         // Show loading state
@@ -135,13 +187,17 @@ class GenomeMatcher {
 
         try {
             // Simulate processing time
+            console.log('Processing...');
             await new Promise(resolve => setTimeout(resolve, 1500));
 
             // Perform analysis
+            console.log('Analyzing patient data:', this.patientData);
             const results = this.patientData.map(patient => {
                 const mutations = this.findMutations(this.referenceData, patient.sequence);
                 const riskScore = this.calculateRiskScore(mutations);
                 const riskLevel = this.classifyRisk(riskScore);
+                
+                console.log(`Patient ${patient.name}:`, { mutations, riskScore, riskLevel });
                 
                 return {
                     patientName: patient.name,
@@ -151,18 +207,21 @@ class GenomeMatcher {
                 };
             });
 
+            console.log('Analysis results:', results);
+
             // Display results
             this.displayResults(results);
             resultsSection.style.display = 'block';
             resultsSection.scrollIntoView({ behavior: 'smooth' });
 
         } catch (error) {
+            console.error('Analysis error:', error);
             this.showError('Analysis failed: ' + error.message);
         } finally {
             // Reset button state
             analyzeBtn.disabled = false;
             spinner.style.display = 'none';
-            analyzeBtn.innerHTML = '🔍 Analyze DNA Sequences';
+            analyzeBtn.innerHTML = 'Analyze DNA Sequences';
         }
     }
 
@@ -224,7 +283,19 @@ class GenomeMatcher {
     }
 
     displayResults(results) {
+        console.log('=== displayResults called ===');
+        console.log('Results data:', results);
+        console.log('Results length:', results.length);
+        
         const container = document.getElementById('results-container');
+        
+        if (!container) {
+            console.error('results-container element not found!');
+            return;
+        }
+        
+        console.log('Container found:', container);
+        console.log('Container current innerHTML length:', container.innerHTML.length);
         
         container.innerHTML = results.map(result => `
             <div class="result-card">
@@ -255,7 +326,7 @@ class GenomeMatcher {
                         <h4>Detected Mutations:</h4>
                         ${result.mutations.slice(0, 5).map(mutation => `
                             <div class="mutation-item">
-                                <span>Position ${mutation.position}: ${mutation.original} → ${mutation.mutated}</span>
+                                <span>Position ${mutation.position}: ${mutation.original} -> ${mutation.mutated}</span>
                                 <span class="severity-${mutation.severity.toLowerCase()}">${mutation.severity}</span>
                             </div>
                         `).join('')}
@@ -263,11 +334,13 @@ class GenomeMatcher {
                     </div>
                 ` : `
                     <div class="mutations-list">
-                        <p style="color: #28a745; text-align: center; font-weight: 500;">✅ No mutations detected - Patient is healthy</p>
+                        <p style="color: #28a745; text-align: center; font-weight: 500;">No mutations detected - Patient is healthy</p>
                     </div>
                 `}
             </div>
         `).join('');
+        
+        console.log('Container innerHTML after update:', container.innerHTML.substring(0, 200) + '...');
     }
 
     readFileAsText(file) {
@@ -288,5 +361,25 @@ class GenomeMatcher {
 
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('=== PAGE LOADED - STARTING DEBUG ===');
+    
+    // Test DOM access immediately
+    const resultsSection = document.getElementById('results-section');
+    const resultsContainer = document.getElementById('results-container');
+    
+    console.log('DOM elements check:', {
+        resultsSection: !!resultsSection,
+        resultsContainer: !!resultsContainer,
+        resultsSectionDisplay: resultsSection ? resultsSection.style.display : 'not found',
+        containerHTML: resultsContainer ? resultsContainer.innerHTML.length : 'not found'
+    });
+    
+    // Test simple HTML injection
+    if (resultsContainer) {
+        resultsContainer.innerHTML = '<p style=\"color: red; font-size: 20px;\">TEST: If you see this, DOM manipulation works!</p>';
+        resultsSection.style.display = 'block'; // Force show results section
+        console.log('Test HTML injected and results section shown');
+    }
+    
     new GenomeMatcher();
 });

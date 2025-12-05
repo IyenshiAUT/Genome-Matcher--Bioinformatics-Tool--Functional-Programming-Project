@@ -1,37 +1,30 @@
--- | Utils.hs - Utility functions for DNA sequence processing
--- Demonstrates string processing and helper functions in Haskell
-
 module Utils (
     parseDNAString,
-    formatRisk
+    formatRisk,
+    unpack
 ) where
 
 import DataTypes
 import Data.Char (toUpper)
+import Data.Text (unpack)
 
--- | Parse raw DNA string into structured DNA type
--- Demonstrates: List processing, filtering, mapping, pattern matching
--- Input: Raw string like "ATCGATCG" or "atcg ATCG\n"
--- Output: Structured DNA sequence [A,T,C,G,A,T,C,G]
+-- [Task 2.3] Parser: Filter & Map raw strings to strict DNA types
+-- | Purely converts a raw string "ATCG" into our strict [Base] type.
+-- | Ignores newlines, spaces, or invalid characters.
 parseDNAString :: String -> DNA
 parseDNAString raw = map charToBase $ filter (`elem` "ACGTacgt") raw
   where
-    -- Local function demonstrating pattern matching and guards
-    charToBase :: Char -> Base
     charToBase c
         | toUpper c == 'A' = A
         | toUpper c == 'C' = C
         | toUpper c == 'G' = G
         | toUpper c == 'T' = T
-        | otherwise        = A -- Safe default fallback
+        | otherwise        = A -- Default fallback safety
 
--- | Format risk score for human-readable display
--- Demonstrates: Guards, pattern matching on numeric ranges
--- Used for converting numeric risk scores to descriptive labels
+-- [Task 3.4 Dependency] Helper to format risk score for display
+-- Used by Role 3 in the Frontend to show text labels
 formatRisk :: Double -> String
 formatRisk score
     | score > 50.0 = "CRITICAL RISK"
     | score > 20.0 = "High Risk"
-    | score > 10.0 = "Medium Risk"
-    | score > 5.0  = "Low Risk"
-    | otherwise    = "Minimal Risk"
+    | otherwise    = "Low Risk"

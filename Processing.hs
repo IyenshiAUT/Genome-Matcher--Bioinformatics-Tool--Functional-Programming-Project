@@ -1,200 +1,114 @@
--- | Processing.hs - Core mutation analysis algorithms
--- Demonstrates pure functional programming in bioinformatics
--- Key FP concepts: Pure functions, recursion, list processing, higher-order functions
-
 module Processing (
-    diff,
-    riskScore,
     analyzePatient,
-    translateToProtein,
-    classifyRisk
+    findMutations,
+    calculateRiskScore,
+    visualizeDiff,
+    dnaToProtein
 ) where
 
 import DataTypes
 
--- | Compare two DNA sequences to identify mutations
--- Demonstrates: Recursion, pattern matching, list processing
--- This is a PURE function - no side effects, same input always gives same output
-diff :: DNA -> DNA -> [Mutation]
-diff reference patient = findMutations 0 reference patient
+-- [Task 1.1] Define Type Signatures
+-- The main pipeline function integrating all steps
+analyzePatient :: DNA -> (String, DNA) -> AnalysisReport
+analyzePatient refGenome (pid, pDna) =
+    let
+        -- [Task 1.2] Step 1: Find mutations (Recursion)
+        muts = findMutations refGenome pDna
+        -- [Task 1.4] Step 2: Calculate risk (Foldl)
+        score = calculateRiskScore muts
+        -- [Task 1.7] Step 3 (ADVANCED): Translate DNA to Protein
+        prot = dnaToProtein pDna
+    in
+        (pid, muts, score, prot)
+
+-- [Task 1.7] ADVANCED: Protein Translation Logic
+-- Recursively processes the DNA list in chunks of 3 (Codons)
+dnaToProtein :: DNA -> Protein
+dnaToProtein [] = []
+dnaToProtein (b1:b2:b3:rest) = codonLookup (b1, b2, b3) : dnaToProtein rest
+dnaToProtein _ = [] -- Ignore trailing incomplete codons
+
+-- [Task 1.8] ADVANCED: Codon Table (Pattern Matching)
+-- Maps triplets of Bases to Amino Acids. This is the "Genetic Code".
+codonLookup :: (Base, Base, Base) -> AminoAcid
+codonLookup (T, T, T) = Phe
+codonLookup (T, T, C) = Phe
+codonLookup (T, T, A) = Leu
+codonLookup (T, T, G) = Leu
+codonLookup (C, T, _) = Leu -- Wildcard matching
+codonLookup (A, T, T) = Ile
+codonLookup (A, T, C) = Ile
+codonLookup (A, T, A) = Ile
+codonLookup (A, T, G) = Met -- Start Codon
+codonLookup (G, T, _) = Val
+codonLookup (T, C, _) = Ser
+codonLookup (C, C, _) = Pro
+codonLookup (A, C, _) = Thr
+codonLookup (G, C, _) = Ala
+codonLookup (T, A, T) = Tyr
+codonLookup (T, A, C) = Tyr
+codonLookup (T, A, A) = STOP
+codonLookup (T, A, G) = STOP
+codonLookup (C, A, T) = His
+codonLookup (C, A, C) = His
+codonLookup (C, A, A) = Gln
+codonLookup (C, A, G) = Gln
+codonLookup (A, A, T) = Asn
+codonLookup (A, A, C) = Asn
+codonLookup (A, A, A) = Lys
+codonLookup (A, A, G) = Lys
+codonLookup (G, A, T) = Asp
+codonLookup (G, A, C) = Asp
+codonLookup (G, A, A) = Glu
+codonLookup (G, A, G) = Glu
+codonLookup (T, G, T) = Cys
+codonLookup (T, G, C) = Cys
+codonLookup (T, G, A) = STOP
+codonLookup (T, G, G) = Trp
+codonLookup (C, G, _) = Arg
+codonLookup (A, G, T) = Ser
+codonLookup (A, G, C) = Ser
+codonLookup (A, G, A) = Arg
+codonLookup (A, G, G) = Arg
+codonLookup (G, G, _) = Gly
+
+-- [Task 1.2] Implement Recursion: Compare two lists index by index
+findMutations :: DNA -> DNA -> [Mutation]
+findMutations ref pat = go 0 ref pat
   where
-    -- Recursive function with accumulator pattern
-    findMutations :: Int -> DNA -> DNA -> [Mutation]
-    findMutations _ [] [] = []                    -- Base case: both sequences empty
-    findMutations _ [] _  = []                    -- Base case: reference shorter
-    findMutations _ _ []  = []                    -- Base case: patient shorter
-    findMutations pos (r:rs) (p:ps)
-      | r == p    = findMutations (pos + 1) rs ps              -- No mutation, continue
-      | otherwise = mutation : findMutations (pos + 1) rs ps   -- Mutation found
-      where
-        mutation = Mutation pos r p (determineSeverity r p)
+    go _ [] [] = []
+    go _ [] _  = []
+    go _ _  [] = []
+    go i (r:rs) (p:ps)
+        | r == p    = go (i+1) rs ps -- Match found, continue
+        -- [Task 1.3] Risk Logic: Call assessRisk inside the loop on mismatch
+        | otherwise = Mutation i r p (assessRisk i r p) : go (i+1) rs ps
 
--- | Calculate overall risk score from list of mutations
--- Demonstrates: Higher-order functions (map), folding, mathematical operations
-riskScore :: [Mutation] -> Double
-riskScore [] = 0.0
-riskScore mutations = totalScore / fromIntegral (length mutations)
+-- [Task 1.3] Risk Logic: Pattern Matching for specific business rules
+assessRisk :: Int -> Base -> Base -> RiskLevel
+assessRisk idx ref mut
+    | idx < 5            = Critical -- Mutations at start are critical
+    | ref == A && mut == T = High     -- Specific A->T mutation is dangerous
+    | otherwise          = Low
+
+-- [Task 1.4] Scoring Logic: Foldl to sum up severity scores
+calculateRiskScore :: [Mutation] -> Double
+calculateRiskScore mutations = foldl (\acc m -> acc + riskValue (severity m)) 0.0 mutations
   where
-    totalScore = sum (map mutationScore mutations)  -- map and sum are higher-order functions
-    
-    -- Score individual mutations based on base change impact
-    mutationScore :: Mutation -> Double
-    mutationScore (Mutation _ orig new sev) = 
-        baseChangeScore orig new + severityBonus sev
-    
-    -- Different base changes have different biological impacts
-    baseChangeScore :: Base -> Base -> Double
-    baseChangeScore A T = 15.0  -- Purine to Pyrimidine (high impact)
-    baseChangeScore T A = 15.0  -- Pyrimidine to Purine (high impact)
-    baseChangeScore A C = 12.0  -- Different chemical properties
-    baseChangeScore C A = 12.0
-    baseChangeScore G C = 8.0   -- Similar chemical properties
-    baseChangeScore C G = 8.0
-    baseChangeScore G T = 10.0
-    baseChangeScore T G = 10.0
-    baseChangeScore A G = 6.0   -- Purine to Purine (lower impact)
-    baseChangeScore G A = 6.0
-    baseChangeScore C T = 4.0   -- Pyrimidine to Pyrimidine (lowest impact)
-    baseChangeScore T C = 4.0
-    baseChangeScore _ _ = 5.0    -- Default case
-    
-    -- Additional scoring based on severity classification
-    severityBonus :: RiskLevel -> Double
-    severityBonus Critical = 20.0
-    severityBonus High     = 15.0
-    severityBonus Medium   = 10.0
-    severityBonus Low      = 5.0
-    severityBonus Benign   = 0.0
+    riskValue Critical = 20.0
+    riskValue High     = 10.0
+    riskValue Medium   = 5.0
+    riskValue Low      = 1.0
+    riskValue Benign   = 0.0
 
--- | Determine mutation severity based on biological knowledge
--- Demonstrates: Pattern matching, decision logic
-determineSeverity :: Base -> Base -> RiskLevel
-determineSeverity orig new
-    | (orig == A && new == T) || (orig == T && new == A) = High     -- High impact transitions
-    | (orig == G && new == C) || (orig == C && new == G) = Medium   -- Medium impact
-    | (orig == A && new == G) || (orig == G && new == A) = Low      -- Conservative changes
-    | (orig == C && new == T) || (orig == T && new == C) = Low      -- Common mutations
-    | otherwise = Medium                                             -- Default
-
--- | Classify overall risk based on numerical score
--- Demonstrates: Guards, threshold-based classification
-classifyRisk :: Double -> RiskLevel
-classifyRisk score
-    | score > 25.0 = Critical
-    | score > 15.0 = High
-    | score > 8.0  = Medium
-    | score > 3.0  = Low
-    | otherwise    = Benign
-
--- | Comprehensive patient analysis function
--- Demonstrates: Function composition, pure functional pipeline
-analyzePatient :: DNA -> Patient -> AnalysisReport
-analyzePatient reference patient = 
-    let mutations = diff reference (dnaSequence patient)
-        risk = riskScore mutations
-        protein = translateToProtein (dnaSequence patient)
-    in (patientId patient, mutations, risk, protein)
-
--- | Translate DNA sequence to protein (simplified genetic code)
--- Demonstrates: List processing, chunking, mapping biological processes
--- Note: This is a simplified version of the actual genetic code
-translateToProtein :: DNA -> Protein
-translateToProtein dna = map translateCodon (chunksOf3 dna)
-  where
-    -- Split DNA into codons (groups of 3 bases)
-    chunksOf3 :: [a] -> [[a]]
-    chunksOf3 [] = []
-    chunksOf3 [x] = [[x]]           -- Handle incomplete codon
-    chunksOf3 [x,y] = [[x,y]]       -- Handle incomplete codon
-    chunksOf3 (x:y:z:rest) = [x,y,z] : chunksOf3 rest
-    
-    -- Simplified codon to amino acid translation
-    -- In reality, this uses a 64-codon genetic code table
-    translateCodon :: [Base] -> AminoAcid
-    translateCodon [A,T,G] = Met    -- Start codon
-    translateCodon [T,A,A] = STOP   -- Stop codon
-    translateCodon [T,A,G] = STOP   -- Stop codon
-    translateCodon [T,G,A] = STOP   -- Stop codon
-    translateCodon [G,C,_] = Ala    -- GC* codes for Alanine
-    translateCodon [T,T,T] = Phe    -- TTT codes for Phenylalanine
-    translateCodon [T,T,C] = Phe    -- TTC codes for Phenylalanine
-    translateCodon _       = Gly    -- Default to Glycine
-    baseScore T A = 15.0
-    baseScore C G = 5.0   -- Medium impact
-    baseScore G C = 5.0
-    baseScore A C = 10.0
-    baseScore A G = 8.0
-    baseScore T C = 12.0
-    baseScore T G = 10.0
-    baseScore C A = 10.0
-    baseScore C T = 12.0
-    baseScore G A = 8.0
-    baseScore G T = 10.0
-    baseScore _ _ = 7.0    -- Default
-    
-    severityMultiplier Critical = 5.0
-    severityMultiplier High     = 3.0
-    severityMultiplier Medium   = 2.0
-    severityMultiplier Low      = 1.0
-    severityMultiplier Benign   = 0.5
-
--- [Task 2.1] Determine mutation severity based on base change
-determineSeverity :: Base -> Base -> RiskLevel
-determineSeverity A T = High     -- Purine to Pyrimidine
-determineSeverity T A = High
-determineSeverity C G = Medium   -- Pyrimidine switch
-determineSeverity G C = Medium
-determineSeverity A C = Critical -- Cross-category changes
-determineSeverity A G = Low      -- Purine switch
-determineSeverity T C = Critical
-determineSeverity T G = High
-determineSeverity C A = Critical
-determineSeverity C T = High
-determineSeverity G A = Low
-determineSeverity G T = High
-determineSeverity _ _ = Benign
-
--- [Task 3.1] Complete patient analysis
-analyzePatient :: DNA -> Patient -> AnalysisReport
-analyzePatient reference patient = 
-    let mutations = diff reference (dnaSequence patient)
-        risk = riskScore mutations
-        protein = translateToProtein (dnaSequence patient)
-    in (patientId patient, mutations, risk, protein)
-
--- [Task 2.1 Advanced] Genetic code translation
-translateToProtein :: DNA -> Protein
-translateToProtein dna = map translateCodon (codons dna)
-  where
-    codons [] = []
-    codons [_] = []
-    codons [_, _] = []
-    codons (a:b:c:rest) = [a,b,c] : codons rest
-    
-    translateCodon [T,T,T] = Phe
-    translateCodon [T,T,C] = Phe
-    translateCodon [T,T,A] = Leu
-    translateCodon [T,T,G] = Leu
-    translateCodon [T,C,T] = Ser
-    translateCodon [T,C,C] = Ser
-    translateCodon [T,C,A] = Ser
-    translateCodon [T,C,G] = Ser
-    translateCodon [T,A,T] = Tyr
-    translateCodon [T,A,C] = Tyr
-    translateCodon [T,A,A] = STOP
-    translateCodon [T,A,G] = STOP
-    translateCodon [T,G,T] = Cys
-    translateCodon [T,G,C] = Cys
-    translateCodon [T,G,A] = STOP
-    translateCodon [T,G,G] = Trp
-    -- Add more codons as needed
-    translateCodon _ = Ala  -- Default for incomplete genetic code
-
--- [Task 3.2] Risk classification
-classifyRisk :: Double -> RiskLevel
-classifyRisk score
-  | score >= 50.0 = Critical
-  | score >= 30.0 = High
-  | score >= 15.0 = Medium
-  | score >= 5.0  = Low
-  | otherwise     = Benign
+-- [Task 1.5] Visualizer: Generate string with pointers
+visualizeDiff :: DNA -> DNA -> String
+visualizeDiff ref pat =
+    let
+        refStr = concatMap show ref
+        patStr = concatMap show pat
+        -- Create pointers: '^' where mismatch occurs
+        pointers = zipWith (\r p -> if r == p then " " else "^") ref pat
+    in
+        unlines ["REF: " ++ refStr, "PAT: " ++ patStr, "     " ++ concat pointers]

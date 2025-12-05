@@ -1,6 +1,235 @@
 # Genome Matcher - Bioinformatics DNA Analysis Tool
 
-A Haskell-based bioinformatics tool for comparing DNA sequences to identify mutations and calculate genetic risk scores. This project demonstrates functional programming principles applied to real-world scientific computing problems.
+**Group Members:** [Add your names here]  
+**Course:** Functional Programming  
+**Project Title:** Genome Matcher - DNA Mutation Analysis System  
+
+## 🧬 Problem Description
+
+In the field of bioinformatics, analyzing DNA sequences to identify genetic mutations is crucial for medical research and diagnosis. The **Genome Matcher** simulates a real-world scenario where:
+
+1. **Medical researchers** need to compare patient DNA samples against a reference genome
+2. **Genetic counselors** require risk assessment based on identified mutations  
+3. **Healthcare systems** need automated analysis of multiple patient samples
+
+**Real-World Scenario:**
+You are a bioinformatics specialist at a medical research facility. You receive DNA samples from patients suspected of having genetic disorders. Your job is to:
+- Compare each patient's DNA against a healthy reference genome
+- Identify mutations (changes in DNA bases: A, C, G, T)
+- Calculate risk scores based on mutation severity
+- Generate reports for medical staff
+
+This tool demonstrates how **functional programming principles** can be applied to solve complex scientific computing problems with **reliability**, **type safety**, and **mathematical precision**.
+
+## 🚀 Instructions to Run the Program
+
+### Prerequisites
+- GHC (Glasgow Haskell Compiler) installed
+- Windows PowerShell or Command Prompt
+
+### Step 1: Compile the Program
+```bash
+cd "d:\8th_Semester\Functional Programming\Project"
+ghc --make Main.hs -o genome-matcher
+```
+
+### Step 2: Run the Application
+```bash
+.\genome-matcher.exe
+```
+
+### Alternative: Console Version
+```bash
+ghc --make MainConsole.hs -o genome-matcher-console
+.\genome-matcher-console.exe
+```
+
+## 📊 Sample Input/Output
+
+### Input Files (Auto-generated)
+The program creates these test files automatically:
+
+**reference.dna** (Healthy genome):
+```
+ATCGATCGATCGATCGAAAA
+```
+
+**patient1.dna** (Healthy patient):
+```
+ATCGATCGATCGATCGAAAA
+```
+
+**patient2.dna** (Critical mutation):
+```
+TTCGATCGATCGATCGAAAA
+```
+
+### Sample Output
+```
+=== Genome Matcher - Bioinformatics Tool ===
+Functional Programming Project
+DNA Mutation Analysis System
+
+Setting up demo DNA files...
+Creating demonstration DNA files...
+  ✓ Created reference.dna (baseline healthy genome)
+  ✓ Created patient1.dna (healthy - no mutations)
+  ✓ Created patient2.dna (critical mutation at position 0)
+  ✓ Created patient3.dna (multiple mutations)
+
+=== ANALYSIS RESULTS ===
+
+--- Patient: patient1.dna ---
+Mutations found: 0
+Risk score: 0.0
+Risk level: Benign
+Status: Minimal Risk
+✓ No mutations detected - Patient is healthy
+
+--- Patient: patient2.dna ---
+Mutations found: 1
+Risk score: 30.0
+Risk level: Critical
+Status: CRITICAL RISK
+Detailed mutations:
+  Position 0: A -> T (High)
+
+--- Patient: patient3.dna ---
+Mutations found: 2
+Risk score: 19.5
+Risk level: High
+Status: High Risk
+Detailed mutations:
+  Position 9: A -> T (High)
+  Position 19: A -> T (High)
+```
+
+## 💡 Functional Programming Concepts Used
+
+### 1. **Algebraic Data Types (ADTs)**
+```haskell
+-- Sum types for DNA bases
+data Base = A | C | G | T
+
+-- Product types with record syntax
+data Mutation = Mutation {
+    position :: Int,
+    original :: Base,
+    current  :: Base,
+    severity :: RiskLevel
+}
+```
+**Why:** Provides type safety and ensures invalid DNA bases cannot be created.
+
+### 2. **Pure Functions**
+```haskell
+-- No side effects - same input always produces same output
+diff :: DNA -> DNA -> [Mutation]
+riskScore :: [Mutation] -> Double
+```
+**Why:** Mathematical reliability, easier testing, and parallel processing.
+
+### 3. **Higher-Order Functions**
+```haskell
+-- map applies function to each element
+totalScore = sum (map mutationScore mutations)
+
+-- forM applies monadic action to each element  
+patients <- forM paths $ \path -> loadPatientFile path
+```
+**Why:** Code reusability and abstraction over iteration patterns.
+
+### 4. **Recursion**
+```haskell
+-- Recursive DNA comparison
+findMutations :: Int -> DNA -> DNA -> [Mutation]
+findMutations pos (r:rs) (p:ps)
+  | r == p    = findMutations (pos + 1) rs ps
+  | otherwise = mutation : findMutations (pos + 1) rs ps
+```
+**Why:** Natural fit for list processing and mathematical induction.
+
+### 5. **Pattern Matching**
+```haskell
+-- Exhaustive case analysis
+determineSeverity :: Base -> Base -> RiskLevel
+determineSeverity A T = High
+determineSeverity T A = High  
+determineSeverity _ _ = Medium
+```
+**Why:** Compiler-checked completeness and clear logic flow.
+
+### 6. **Type Safety**
+```haskell
+-- Compiler prevents mixing incompatible types
+type DNA = [Base]          -- Can only contain valid bases
+type Protein = [AminoAcid] -- Can only contain valid amino acids
+```
+**Why:** Catches errors at compile-time rather than runtime.
+
+### 7. **Immutability**
+```haskell
+-- Data structures cannot be modified after creation
+let mutations = diff reference patientDNA  -- Creates new list
+let updatedRisk = riskScore mutations      -- Doesn't modify original
+```
+**Why:** Thread safety, easier debugging, and mathematical reasoning.
+
+### 8. **Function Composition**
+```haskell
+-- Combine simple functions to build complex operations
+analyzePatient reference patient = 
+    let mutations = diff reference (dnaSequence patient)
+        risk = riskScore mutations
+        protein = translateToProtein (dnaSequence patient)
+    in (patientId patient, mutations, risk, protein)
+```
+**Why:** Builds complex behavior from simple, testable components.
+
+### 9. **Monadic I/O**
+```haskell
+-- Controlled side effects in IO monad
+loadReference :: FilePath -> IO DNA
+loadReference path = do
+    contents <- readFile path
+    return (parseDNAString contents)
+```
+**Why:** Separates pure computation from side effects.
+
+### 10. **List Comprehensions & Processing**
+```haskell
+-- Declarative data processing
+parseDNAString raw = map charToBase $ filter (`elem` "ACGT") raw
+```
+**Why:** Expressive and concise data transformations.
+
+## 🔬 Educational Value
+
+This project demonstrates how **functional programming** excels in **scientific computing**:
+- **Mathematical Correctness**: Pure functions provide predictable, testable algorithms
+- **Type Safety**: Prevents invalid genetic data from causing runtime errors  
+- **Concurrency**: Immutable data enables safe parallel patient analysis
+- **Composability**: Small, focused functions combine to solve complex problems
+- **Domain Modeling**: ADTs naturally represent biological concepts
+
+## 🏗️ Project Structure
+
+```
+├── Main.hs          # Application entry point
+├── DataTypes.hs     # Core ADTs and type definitions
+├── Processing.hs    # Pure mutation analysis algorithms  
+├── IOHandler.hs     # File I/O operations
+├── Utils.hs         # Utility functions
+├── README.md        # This documentation
+└── data/            # Demo DNA data files
+    ├── reference.dna      # Reference genome
+    ├── patient1.dna       # Healthy patient
+    ├── patient2.dna       # Critical mutation
+    └── patient3.dna       # Multiple mutations
+```
+
+---
+*This project showcases functional programming's power in solving real-world bioinformatics challenges with mathematical precision and type safety.*
 
 ## 🧬 Overview
 
