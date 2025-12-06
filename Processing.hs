@@ -1,5 +1,6 @@
 module Processing (
     analyzePatient,
+    analyzeMultiplePatients,
     findMutations,
     calculateRiskScore,
     visualizeDiff,
@@ -12,6 +13,8 @@ module Processing (
 ) where
 
 import DataTypes
+import Control.Parallel.Strategies (parMap, rdeepseq)
+import Control.DeepSeq (NFData, deepseq)
 
 -- [Task 1.1] Define Type Signatures
 -- The main pipeline function integrating all steps
@@ -26,6 +29,16 @@ analyzePatient refGenome (pid, pDna) =
         prot = dnaToProtein pDna
     in
         (pid, muts, score, prot)
+
+-- PARALLEL PROCESSING: Analyze multiple patients using all CPU cores
+-- This demonstrates functional programming's parallel processing capability
+-- Each patient analysis runs independently across different CPU cores
+analyzeMultiplePatients :: DNA -> [(String, DNA)] -> [AnalysisReport]
+analyzeMultiplePatients refDNA patients =
+    -- parMap rdeepseq applies analyzePatient in parallel
+    -- rdeepseq ensures full evaluation (no lazy thunks)
+    -- This automatically distributes work across all available CPU cores
+    parMap rdeepseq (analyzePatient refDNA) patients
 
 -- [Task 1.7] ADVANCED: Protein Translation Logic
 -- Recursively processes the DNA list in chunks of 3 (Codons)
@@ -218,5 +231,7 @@ generateClinicalReport patientId muts score prot refDNA patDNA =
                   "High Risk Mutations: " ++ show highRisk ++ "\n" ++
                   "Protein Length: " ++ show (length prot) ++ " amino acids"
     in summary
-  where
-    isInfixOf needle haystack = any (== needle) (words haystack)
+
+-- Helper function for clinical report
+isInfixOf :: String -> String -> Bool
+isInfixOf needle haystack = any (== needle) (words haystack)

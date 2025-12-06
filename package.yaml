@@ -23,6 +23,8 @@ dependencies:
 - bytestring
 - unordered-containers
 - vector
+- parallel
+- async
 
 ghc-options:
 - -Wall

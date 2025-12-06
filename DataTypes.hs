@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+
 module DataTypes (
     Base(..),
     DNA,
@@ -13,10 +16,13 @@ module DataTypes (
     DetailedReport
 ) where
 
+import Control.DeepSeq (NFData)
+import GHC.Generics (Generic)
+
 -- [Task 2.1] Core ADTs: Define Base, DNA, Mutation, and RiskLevel
 -- The basic building block of DNA
 data Base = A | C | G | T 
-    deriving (Show, Eq, Read, Enum)
+    deriving (Show, Eq, Read, Enum, Generic, NFData)
 
 type DNA = [Base]
 
@@ -24,7 +30,7 @@ type DNA = [Base]
 -- Represents the 20 standard amino acids + STOP codon
 data AminoAcid = 
       Phe | Leu | Ser | Tyr | Cys | Trp | Pro | His | Gln | Arg | Ile | Met | Thr | Asn | Lys | Val | Ala | Asp | Glu | Gly | STOP
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic, NFData)
 
 type Protein = [AminoAcid]
 
@@ -34,11 +40,11 @@ data Mutation = Mutation {
     original :: Base,
     current  :: Base,
     severity :: RiskLevel
-} deriving (Show)
+} deriving (Show, Generic, NFData)
 
 -- [Task 2.1] Risk Levels ordered by severity
 data RiskLevel = Benign | Low | Medium | High | Critical
-    deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord, Generic, NFData)
 
 -- [Task 2.2] Records: Define Patient and AnalysisReport type aliases
 data Patient = Patient {

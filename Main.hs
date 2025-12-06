@@ -5,7 +5,7 @@ module Main (main) where
 
 import Web.Scotty
 import DataTypes
-import Processing (analyzePatient, generateClinicalReport, calculateMutationRate, analyzeMutationImpact)
+import Processing (analyzePatient, analyzeMultiplePatients, generateClinicalReport, calculateMutationRate, analyzeMutationImpact)
 import Utils (parseDNAString)
 import Data.Text.Lazy (pack, Text)
 import qualified Data.Text as T
@@ -14,6 +14,9 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Data.Aeson (Value(..), decode, (.:))
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Vector as V
+import System.CPUTime (getCPUTime)
+import Text.Printf (printf)
+import GHC.Conc (numCapabilities)
 
 main :: IO ()
 main = do
@@ -59,6 +62,13 @@ startServer = scotty 3000 $ do
             "  </div>",
             "</div>",
             "<div class='action-section'>",
+            "  <div class='mode-toggle'>",
+            "    <label class='toggle-label'>",
+            "      <input type='checkbox' id='parallelMode' class='mode-checkbox'>",
+            "      <span class='toggle-slider'></span>",
+            "      <span class='toggle-text'>🚀 Parallel Processing (Multi-Core)</span>",
+            "    </label>",
+            "  </div>",
             "  <button onclick='analyzeFiles()' class='btn analyze-btn'>",
             "    <span class='btn-icon'>🔬</span>",
             "    <span>Analyze DNA Sequences</span>",
@@ -110,7 +120,10 @@ startServer = scotty 3000 $ do
             "    }",
             "  });",
             "  console.log('Sending', patients.length, 'patients to analyze');",
-            "  fetch('/analyze', {",
+            "  const parallelMode = document.getElementById('parallelMode').checked;",
+            "  const endpoint = parallelMode ? '/analyze-batch' : '/analyze';",
+            "  console.log('Using endpoint:', endpoint, '(Parallel:', parallelMode, ')');",
+            "  fetch(endpoint, {",
             "    method: 'POST',",
             "    headers: {'Content-Type': 'application/json'},",
             "    body: JSON.stringify({reference: refContent, patients: patients})",
@@ -187,6 +200,72 @@ startServer = scotty 3000 $ do
                         html $ mconcat [
                             styleHeader,
                             "<h1>Analysis Results</h1>",
+                            "<div class='container'>",
+                            "<ul>",
+                            mconcat (map resultToHtml results),
+                            "</ul>",
+                            "</div>",
+                            "<a class='btn' href='/'>Back to Dashboard</a>"
+                            ]
+    
+    -- NEW ROUTE: Batch analysis with parallel processing
+    post "/analyze-batch" $ do
+        bodyData <- body
+        case decode bodyData of
+            Nothing -> html "<h1>Error: Invalid JSON data</h1>"
+            Just jsonVal -> do
+                result <- liftIO $ try $ do
+                    let refContent = case jsonVal of
+                            Object obj -> case KM.lookup "reference" obj of
+                                Just (String txt) -> T.unpack txt
+                                _ -> ""
+                            _ -> ""
+                    
+                    let patientsData = case jsonVal of
+                            Object obj -> case KM.lookup "patients" obj of
+                                Just (Array arr) -> map extractPatient $ V.toList arr
+                                _ -> []
+                            _ -> []
+                    
+                    _ <- evaluate refContent
+                    refDNA <- evaluate $ parseDNAString refContent
+                    
+                    -- Create patient data pairs
+                    patientDataList <- mapM (\(name, content) -> do
+                        pDNA <- evaluate $ parseDNAString content
+                        return (name, pDNA)
+                        ) patientsData
+                    
+                    -- Get CPU count
+                    cores <- return numCapabilities
+                    
+                    -- Measure parallel execution time
+                    startTime <- getCPUTime
+                    
+                    -- PARALLEL PROCESSING: Use all CPU cores with parMap
+                    let results = analyzeMultiplePatients refDNA patientDataList
+                    _ <- evaluate results
+                    
+                    endTime <- getCPUTime
+                    let timeDiff = fromIntegral (endTime - startTime) / (10^12) :: Double
+                    
+                    return (results, cores, timeDiff)
+
+                case (result :: Either SomeException ([AnalysisReport], Int, Double)) of
+                    Left e -> html $ pack $ "<h1>Error during analysis: " ++ show e ++ "</h1>"
+                    Right (results, cores, execTime) -> 
+                        html $ mconcat [
+                            styleHeader,
+                            "<h1>🚀 Parallel Batch Analysis Results</h1>",
+                            "<div class='batch-info'>",
+                            "<p class='info-text'>✨ Processed <strong>", pack (show (length results)), 
+                            " patients</strong> using <strong>parallel processing</strong> across ", 
+                            pack (show cores), " CPU cores</p>",
+                            "<p class='perf-text'>⚡ Execution Time: <strong>", 
+                            pack (printf "%.4f" execTime), " seconds</strong></p>",
+                            "<p class='algo-text'>🔬 Algorithm: <code>parMap rdeepseq (analyzePatient refDNA) patients</code></p>",
+                            "</div>",
+                            "</div>",
                             "<div class='container'>",
                             "<ul>",
                             mconcat (map resultToHtml results),
@@ -350,6 +429,24 @@ styleHeader = pack $ "<style>" ++
               ".patient-files-container h4 { color: #2c3e50; margin-bottom: 10px; font-size: 1em; }" ++
               ".patient-files-container textarea { height: 80px; background: white; }" ++
               ".action-section { text-align: center; margin: 40px 0; }" ++
+              
+              -- Toggle Switch CSS
+              ".mode-toggle { margin-bottom: 20px; display: flex; justify-content: center; }" ++
+              ".toggle-label { display: flex; align-items: center; gap: 15px; cursor: pointer; background: white; padding: 15px 25px; border-radius: 50px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: all 0.3s; }" ++
+              ".toggle-label:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.15); transform: translateY(-2px); }" ++
+              ".mode-checkbox { display: none; }" ++
+              ".toggle-slider { width: 50px; height: 26px; background: #ccc; border-radius: 34px; position: relative; transition: 0.3s; }" ++
+              ".toggle-slider::before { content: ''; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }" ++
+              ".mode-checkbox:checked + .toggle-slider { background: linear-gradient(135deg, #667eea, #764ba2); }" ++
+              ".mode-checkbox:checked + .toggle-slider::before { transform: translateX(24px); }" ++
+              ".toggle-text { font-weight: 600; color: #2c3e50; font-size: 1.05em; }" ++
+              
+              ".batch-info { text-align: center; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); padding: 25px; border-radius: 12px; margin-bottom: 30px; border: 2px solid rgba(255,255,255,0.3); }" ++
+              ".info-text { color: white; font-size: 1.3em; font-weight: 500; margin-bottom: 12px; }" ++
+              ".perf-text { color: #ffeb3b; font-size: 1.2em; font-weight: 600; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }" ++
+              ".algo-text { color: rgba(255,255,255,0.9); font-size: 1em; margin-top: 10px; }" ++
+              ".algo-text code { background: rgba(0,0,0,0.3); padding: 5px 12px; border-radius: 6px; font-family: 'Courier New', monospace; color: #4fc3f7; font-weight: 600; }" ++
+              
               ".analyze-btn { display: inline-flex; align-items: center; gap: 12px; padding: 18px 40px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 50px; font-size: 1.2em; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3); }" ++
               ".analyze-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(102, 126, 234, 0.5); animation: pulse 1s infinite; }" ++
               ".analyze-btn:active { transform: translateY(-1px); }" ++
