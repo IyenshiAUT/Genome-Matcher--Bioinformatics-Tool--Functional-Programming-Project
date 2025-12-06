@@ -6,7 +6,11 @@ module DataTypes (
     Patient(..),
     AnalysisReport,
     AminoAcid(..),
-    Protein
+    Protein,
+    MutationType(..),
+    GeneRegion(..),
+    MutationImpact(..),
+    DetailedReport
 ) where
 
 -- [Task 2.1] Core ADTs: Define Base, DNA, Mutation, and RiskLevel
@@ -45,3 +49,34 @@ data Patient = Patient {
 -- [Task 2.2] (Advanced): Updated Report type to include Protein sequence
 -- (Patient ID, List of Mutations, Risk Score, Protein Chain)
 type AnalysisReport = (String, [Mutation], Double, Protein)
+
+-- ADVANCED: Mutation Type Classification
+data MutationType = 
+    Substitution    -- Single base change (SNP)
+    | Insertion     -- Base(s) added
+    | Deletion      -- Base(s) removed
+    | Silent        -- No protein change
+    | Missense      -- Different amino acid
+    | Nonsense      -- Creates stop codon
+    deriving (Show, Eq)
+
+-- ADVANCED: Gene Region Classification
+data GeneRegion =
+    Exon            -- Protein-coding region
+    | Intron        -- Non-coding region
+    | Promoter      -- Gene regulation region
+    | UTR           -- Untranslated region
+    | Intergenic    -- Between genes
+    deriving (Show, Eq)
+
+-- ADVANCED: Mutation Impact Assessment
+data MutationImpact = MutationImpact {
+    mutationType :: MutationType,
+    geneRegion :: GeneRegion,
+    proteinChange :: Maybe (AminoAcid, AminoAcid),  -- (original, new)
+    clinicalSignificance :: String,
+    recommendations :: [String]
+} deriving (Show)
+
+-- ADVANCED: Detailed Analysis Report
+type DetailedReport = (String, [Mutation], Double, Protein, [MutationImpact], String)

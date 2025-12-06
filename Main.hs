@@ -5,7 +5,7 @@ module Main (main) where
 
 import Web.Scotty
 import DataTypes
-import Processing (analyzePatient)
+import Processing (analyzePatient, generateClinicalReport, calculateMutationRate, analyzeMutationImpact)
 import Utils (parseDNAString)
 import Data.Text.Lazy (pack, Text)
 import qualified Data.Text as T
@@ -207,32 +207,115 @@ startServer = scotty 3000 $ do
 
 -- ... (rest of the file remains the same)
 -- [Task 3.4] HTML Helper: Convert Report to HTML list item
--- [Task 3.7] ADVANCED: Protein Display added to HTML
+-- [Task 3.7] ADVANCED: Protein Display added to HTML with enhanced statistics
 resultToHtml :: AnalysisReport -> Text
 resultToHtml (pid, muts, score, prot) = 
-    pack $ "<li class='card'>" ++
+    let
+        mutCount = length muts
+        criticalMuts = length $ filter (\m -> severity m == Critical) muts
+        highMuts = length $ filter (\m -> severity m == High) muts
+        riskCategory = if score > 100 then "🔴 Critical" 
+                       else if score > 50 then "🟠 High"
+                       else if score > 20 then "🟡 Medium"
+                       else "🟢 Low"
+    in pack $ "<li class='card'>" ++
            "<div class='card-header'>" ++
            "<h2>🧬 " ++ pid ++ "</h2>" ++
+           "<div class='risk-badge " ++ (if score > 50 then "high-risk" else "low-risk") ++ "'>" ++ riskCategory ++ "</div>" ++
            "</div>" ++
+           
+           -- Main Statistics Grid
            "<div class='stats-grid'>" ++
            "<div class='stat-item'>" ++
-           "<span class='stat-label'>🧬 Mutations Found:</span>" ++
-           "<span class='stat-value'>" ++ show (length muts) ++ "</span>" ++
+           "<span class='stat-label'>🧬 Total Mutations</span>" ++
+           "<span class='stat-value'>" ++ show mutCount ++ "</span>" ++
            "</div>" ++
            "<div class='stat-item'>" ++
-           "<span class='stat-label'>⚠️ Risk Score:</span>" ++
-           "<span class='stat-value'>" ++ show score ++ "</span>" ++
+           "<span class='stat-label'>⚠️ Risk Score</span>" ++
+           "<span class='stat-value risk-score'>" ++ show score ++ "</span>" ++
+           "</div>" ++
+           "<div class='stat-item'>" ++
+           "<span class='stat-label'>🔴 Critical</span>" ++
+           "<span class='stat-value critical-count'>" ++ show criticalMuts ++ "</span>" ++
+           "</div>" ++
+           "<div class='stat-item'>" ++
+           "<span class='stat-label'>🟠 High Risk</span>" ++
+           "<span class='stat-value high-count'>" ++ show highMuts ++ "</span>" ++
            "</div>" ++
            "</div>" ++
+           
+           -- Mutation Details Table
+           (if mutCount > 0 then
+           "<div class='mutation-details'>" ++
+           "<h3>📊 Mutation Details</h3>" ++
+           "<table class='mutation-table'>" ++
+           "<tr><th>Position</th><th>Change</th><th>Severity</th><th>Type</th></tr>" ++
+           concatMap formatMutation (take 10 muts) ++
+           (if mutCount > 10 then "<tr><td colspan='4' class='more-mutations'>... and " ++ show (mutCount - 10) ++ " more mutations</td></tr>" else "") ++
+           "</table>" ++
+           "</div>"
+           else "") ++
+           
+           -- Protein Section
            "<div class='protein-section'>" ++
-           "<h3>🧪 Synthesized Protein Chain</h3>" ++
+           "<h3>🧪 Synthesized Protein Chain (" ++ show (length prot) ++ " amino acids)</h3>" ++
            "<div class='protein-chain'>" ++ formatProtein prot ++ "</div>" ++
            "</div>" ++
+           
+           -- Clinical Insights
+           "<div class='clinical-insights'>" ++
+           "<h3>💡 Clinical Insights</h3>" ++
+           "<div class='insights-content'>" ++
+           generateInsights score mutCount criticalMuts highMuts ++
+           "</div>" ++
+           "</div>" ++
+           
            "</li>"
   where
     formatProtein [] = "<span class='empty-protein'>No proteins synthesized</span>"
     formatProtein prots = concatMap formatAminoAcid prots
-    formatAminoAcid amino = "<span class='amino-acid'>" ++ show amino ++ "</span>"
+    formatAminoAcid amino = 
+        let color = case amino of
+                Met -> "amino-start"    -- Start codon
+                STOP -> "amino-stop"    -- Stop codon
+                _ -> "amino-acid"
+        in "<span class='" ++ color ++ "'>" ++ show amino ++ "</span>"
+    
+    formatMutation m = 
+        "<tr>" ++
+        "<td>" ++ show (position m) ++ "</td>" ++
+        "<td>" ++ show (original m) ++ " → " ++ show (current m) ++ "</td>" ++
+        "<td><span class='severity-badge " ++ severityClass (severity m) ++ "'>" ++ show (severity m) ++ "</span></td>" ++
+        "<td>Substitution</td>" ++
+        "</tr>"
+    
+    severityClass Critical = "sev-critical"
+    severityClass High = "sev-high"
+    severityClass Medium = "sev-medium"
+    severityClass Low = "sev-low"
+    severityClass Benign = "sev-benign"
+    
+    generateInsights score mutCount critical high
+        | score > 100 = 
+            "<div class='insight critical-insight'>" ++
+            "<strong>⚠️ Critical Risk Detected:</strong> " ++ show critical ++ " critical mutations found. " ++
+            "Immediate genetic counseling and clinical follow-up recommended." ++
+            "</div>"
+        | score > 50 = 
+            "<div class='insight high-insight'>" ++
+            "<strong>🟠 Elevated Risk:</strong> " ++ show (critical + high) ++ " significant mutations detected. " ++
+            "Regular monitoring and preventive care advised." ++
+            "</div>"
+        | score > 20 =
+            "<div class='insight medium-insight'>" ++
+            "<strong>🟡 Moderate Findings:</strong> " ++ show mutCount ++ " mutations detected with moderate risk. " ++
+            "Standard screening protocols recommended." ++
+            "</div>"
+        | otherwise =
+            "<div class='insight low-insight'>" ++
+            "<strong>🟢 Low Risk Profile:</strong> Genetic profile shows minimal concerning variations. " ++
+            "Routine health maintenance sufficient." ++
+            "</div>"
 
 -- [Task 3.6] Styling: Simple CSS
 styleHeader :: Text
@@ -290,4 +373,44 @@ styleHeader = pack $ "<style>" ++
               ".empty-protein { color: #95a5a6; font-style: italic; }" ++
               ".btn { display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; text-decoration: none; border-radius: 50px; font-weight: 600; transition: all 0.3s; border: none; cursor: pointer; margin-top: 30px; font-size: 1.1em; box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3); }" ++
               ".btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5); }" ++
+              
+              -- Advanced Features CSS
+              ".card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }" ++
+              ".risk-badge { padding: 8px 16px; border-radius: 20px; font-size: 0.9em; font-weight: 600; }" ++
+              ".high-risk { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }" ++
+              ".low-risk { background: linear-gradient(135deg, #27ae60, #229954); color: white; }" ++
+              
+              ".stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 25px 0; }" ++
+              ".critical-count { color: #e74c3c !important; }" ++
+              ".high-count { color: #f39c12 !important; }" ++
+              ".risk-score { color: #667eea !important; font-size: 1.8em !important; }" ++
+              
+              ".mutation-details { margin-top: 25px; background: #f8f9fa; padding: 20px; border-radius: 12px; }" ++
+              ".mutation-details h3 { color: #2c3e50; margin-bottom: 15px; font-size: 1.2em; }" ++
+              ".mutation-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }" ++
+              ".mutation-table th { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px; text-align: left; font-weight: 600; }" ++
+              ".mutation-table td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; }" ++
+              ".mutation-table tr:hover { background: #f8f9fa; }" ++
+              ".more-mutations { text-align: center; font-style: italic; color: #6c757d; background: #f8f9fa !important; }" ++
+              
+              ".severity-badge { padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600; }" ++
+              ".sev-critical { background: #e74c3c; color: white; }" ++
+              ".sev-high { background: #f39c12; color: white; }" ++
+              ".sev-medium { background: #f1c40f; color: #333; }" ++
+              ".sev-low { background: #3498db; color: white; }" ++
+              ".sev-benign { background: #27ae60; color: white; }" ++
+              
+              ".amino-start { background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 6px 12px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.95em; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }" ++
+              ".amino-stop { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.95em; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }" ++
+              
+              ".clinical-insights { margin-top: 25px; }" ++
+              ".clinical-insights h3 { color: #2c3e50; margin-bottom: 15px; font-size: 1.2em; font-weight: 600; }" ++
+              ".insights-content { background: white; padding: 20px; border-radius: 12px; border-left: 4px solid #667eea; }" ++
+              ".insight { padding: 15px; border-radius: 8px; margin-bottom: 10px; }" ++
+              ".critical-insight { background: linear-gradient(135deg, #fee, #fdd); border-left: 4px solid #e74c3c; }" ++
+              ".high-insight { background: linear-gradient(135deg, #fff4e5, #ffe8cc); border-left: 4px solid #f39c12; }" ++
+              ".medium-insight { background: linear-gradient(135deg, #fffbea, #fff9db); border-left: 4px solid #f1c40f; }" ++
+              ".low-insight { background: linear-gradient(135deg, #e8f8f5, #d4efdf); border-left: 4px solid #27ae60; }" ++
+              ".insight strong { display: block; margin-bottom: 8px; font-size: 1.05em; }" ++
+              
               "</style>"

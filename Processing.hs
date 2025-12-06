@@ -3,7 +3,12 @@ module Processing (
     findMutations,
     calculateRiskScore,
     visualizeDiff,
-    dnaToProtein
+    dnaToProtein,
+    analyzeMutationImpact,
+    calculateMutationRate,
+    classifyMutationType,
+    getGeneRegion,
+    generateClinicalReport
 ) where
 
 import DataTypes
@@ -112,3 +117,106 @@ visualizeDiff ref pat =
         pointers = zipWith (\r p -> if r == p then " " else "^") ref pat
     in
         unlines ["REF: " ++ refStr, "PAT: " ++ patStr, "     " ++ concat pointers]
+
+-- ADVANCED: Mutation Impact Analysis
+analyzeMutationImpact :: Mutation -> DNA -> DNA -> MutationImpact
+analyzeMutationImpact mut refDNA patDNA =
+    let
+        mutType = classifyMutationType mut refDNA patDNA
+        region = getGeneRegion (position mut)
+        protChange = getProteinChange mut refDNA patDNA
+        clinical = getClinicalSignificance mut mutType
+        recs = getRecommendations mut mutType clinical
+    in
+        MutationImpact mutType region protChange clinical recs
+
+-- Classify mutation type based on DNA changes
+classifyMutationType :: Mutation -> DNA -> DNA -> MutationType
+classifyMutationType mut refDNA patDNA =
+    let pos = position mut
+        refCodon = getCodon pos refDNA
+        patCodon = getCodon pos patDNA
+        refAA = if length refCodon == 3 then codonLookup (refCodon !! 0, refCodon !! 1, refCodon !! 2) else STOP
+        patAA = if length patCodon == 3 then codonLookup (patCodon !! 0, patCodon !! 1, patCodon !! 2) else STOP
+    in
+        if refAA == patAA then Silent
+        else if patAA == STOP then Nonsense
+        else if refAA /= patAA then Missense
+        else Substitution
+
+-- Get codon containing position
+getCodon :: Int -> DNA -> [Base]
+getCodon pos dna = 
+    let codonStart = (pos `div` 3) * 3
+    in take 3 $ drop codonStart dna
+
+-- Get protein change if any
+getProteinChange :: Mutation -> DNA -> DNA -> Maybe (AminoAcid, AminoAcid)
+getProteinChange mut refDNA patDNA =
+    let pos = position mut
+        refCodon = getCodon pos refDNA
+        patCodon = getCodon pos patDNA
+    in if length refCodon == 3 && length patCodon == 3
+       then Just (codonLookup (refCodon !! 0, refCodon !! 1, refCodon !! 2),
+                  codonLookup (patCodon !! 0, patCodon !! 1, patCodon !! 2))
+       else Nothing
+
+-- Determine gene region (simplified model)
+getGeneRegion :: Int -> GeneRegion
+getGeneRegion pos
+    | pos < 10 = Promoter        -- First 10 bases = promoter
+    | pos `mod` 10 < 7 = Exon    -- 70% exons
+    | otherwise = Intron          -- 30% introns
+
+-- Get clinical significance
+getClinicalSignificance :: Mutation -> MutationType -> String
+getClinicalSignificance mut mutType =
+    case (severity mut, mutType) of
+        (Critical, Nonsense) -> "Pathogenic - High Disease Risk"
+        (Critical, _) -> "Likely Pathogenic"
+        (High, Nonsense) -> "Pathogenic"
+        (High, Missense) -> "Likely Pathogenic"
+        (Medium, _) -> "Uncertain Significance"
+        (Low, Silent) -> "Benign"
+        _ -> "Likely Benign"
+
+-- Generate recommendations based on mutation
+getRecommendations :: Mutation -> MutationType -> String -> [String]
+getRecommendations mut mutType clinical =
+    case severity mut of
+        Critical -> ["Immediate genetic counseling recommended",
+                     "Consider targeted therapy options",
+                     "Family screening advised"]
+        High -> ["Genetic counseling recommended",
+                 "Regular monitoring required",
+                 "Discuss preventive measures"]
+        Medium -> ["Follow-up testing in 6 months",
+                   "Monitor for symptoms"]
+        _ -> ["Routine screening sufficient"]
+
+-- Calculate mutation rate (mutations per base)
+calculateMutationRate :: [Mutation] -> Int -> Double
+calculateMutationRate mutations genomeLength =
+    fromIntegral (length mutations) / fromIntegral genomeLength
+
+-- Generate comprehensive clinical report
+generateClinicalReport :: String -> [Mutation] -> Double -> Protein -> DNA -> DNA -> String
+generateClinicalReport patientId muts score prot refDNA patDNA =
+    let
+        mutCount = length muts
+        mutRate = calculateMutationRate muts (length refDNA)
+        impacts = map (\m -> analyzeMutationImpact m refDNA patDNA) muts
+        pathogenic = length $ filter (\i -> "Pathogenic" `isInfixOf` clinicalSignificance i) impacts
+        highRisk = length $ filter (\m -> severity m >= High) muts
+        
+        summary = "CLINICAL GENOMICS REPORT\n" ++
+                  "Patient ID: " ++ patientId ++ "\n" ++
+                  "Total Mutations: " ++ show mutCount ++ "\n" ++
+                  "Mutation Rate: " ++ show (mutRate * 100) ++ "%\n" ++
+                  "Risk Score: " ++ show score ++ "\n" ++
+                  "Pathogenic Variants: " ++ show pathogenic ++ "\n" ++
+                  "High Risk Mutations: " ++ show highRisk ++ "\n" ++
+                  "Protein Length: " ++ show (length prot) ++ " amino acids"
+    in summary
+  where
+    isInfixOf needle haystack = any (== needle) (words haystack)
