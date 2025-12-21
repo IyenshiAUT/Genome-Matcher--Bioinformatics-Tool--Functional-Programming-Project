@@ -16,16 +16,16 @@ import DataTypes
 import Control.Parallel.Strategies (parMap, rdeepseq)
 import Control.DeepSeq (NFData, deepseq)
 
--- [Task 1.1] Define Type Signatures
+-- Define Type Signatures
 -- The main pipeline function integrating all steps
 analyzePatient :: DNA -> (String, DNA) -> AnalysisReport
 analyzePatient refGenome (pid, pDna) =
     let
-        -- [Task 1.2] Step 1: Find mutations (Recursion)
+        -- Step 1: Find mutations (Recursion)
         muts = findMutations refGenome pDna
-        -- [Task 1.4] Step 2: Calculate risk (Foldl)
+        -- Step 2: Calculate risk (Foldl)
         score = calculateRiskScore muts
-        -- [Task 1.7] Step 3 (ADVANCED): Translate DNA to Protein
+        -- Step 3 (ADVANCED): Translate DNA to Protein
         prot = dnaToProtein pDna
     in
         (pid, muts, score, prot)
@@ -40,14 +40,14 @@ analyzeMultiplePatients refDNA patients =
     -- This automatically distributes work across all available CPU cores
     parMap rdeepseq (analyzePatient refDNA) patients
 
--- [Task 1.7] ADVANCED: Protein Translation Logic
+-- Protein Translation Logic
 -- Recursively processes the DNA list in chunks of 3 (Codons)
 dnaToProtein :: DNA -> Protein
 dnaToProtein [] = []
 dnaToProtein (b1:b2:b3:rest) = codonLookup (b1, b2, b3) : dnaToProtein rest
 dnaToProtein _ = [] -- Ignore trailing incomplete codons
 
--- [Task 1.8] ADVANCED: Codon Table (Pattern Matching)
+-- Codon Table (Pattern Matching)
 -- Maps triplets of Bases to Amino Acids. This is the "Genetic Code".
 codonLookup :: (Base, Base, Base) -> AminoAcid
 codonLookup (T, T, T) = Phe
@@ -91,7 +91,7 @@ codonLookup (A, G, A) = Arg
 codonLookup (A, G, G) = Arg
 codonLookup (G, G, _) = Gly
 
--- [Task 1.2] Implement Recursion: Compare two lists index by index
+-- Compare two lists index by index
 findMutations :: DNA -> DNA -> [Mutation]
 findMutations ref pat = go 0 ref pat
   where
@@ -100,17 +100,17 @@ findMutations ref pat = go 0 ref pat
     go _ _  [] = []
     go i (r:rs) (p:ps)
         | r == p    = go (i+1) rs ps -- Match found, continue
-        -- [Task 1.3] Risk Logic: Call assessRisk inside the loop on mismatch
+        -- Call assessRisk inside the loop on mismatch
         | otherwise = Mutation i r p (assessRisk i r p) : go (i+1) rs ps
 
--- [Task 1.3] Risk Logic: Pattern Matching for specific business rules
+-- Pattern Matching for specific business rules
 assessRisk :: Int -> Base -> Base -> RiskLevel
 assessRisk idx ref mut
     | idx < 5            = Critical -- Mutations at start are critical
     | ref == A && mut == T = High     -- Specific A->T mutation is dangerous
     | otherwise          = Low
 
--- [Task 1.4] Scoring Logic: Foldl to sum up severity scores
+-- Scoring Logic: Foldl to sum up severity scores
 calculateRiskScore :: [Mutation] -> Double
 calculateRiskScore mutations = foldl (\acc m -> acc + riskValue (severity m)) 0.0 mutations
   where
@@ -120,7 +120,7 @@ calculateRiskScore mutations = foldl (\acc m -> acc + riskValue (severity m)) 0.
     riskValue Low      = 1.0
     riskValue Benign   = 0.0
 
--- [Task 1.5] Visualizer: Generate string with pointers
+-- Visualizer: Generate string with pointers
 visualizeDiff :: DNA -> DNA -> String
 visualizeDiff ref pat =
     let
@@ -131,7 +131,7 @@ visualizeDiff ref pat =
     in
         unlines ["REF: " ++ refStr, "PAT: " ++ patStr, "     " ++ concat pointers]
 
--- ADVANCED: Mutation Impact Analysis
+-- Mutation Impact Analysis
 analyzeMutationImpact :: Mutation -> DNA -> DNA -> MutationImpact
 analyzeMutationImpact mut refDNA patDNA =
     let

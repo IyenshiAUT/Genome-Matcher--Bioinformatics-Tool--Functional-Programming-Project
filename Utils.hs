@@ -8,7 +8,7 @@ import DataTypes
 import Data.Char (toUpper)
 import Data.Text (unpack)
 
--- [Task 2.3] Parser: Filter & Map raw strings to strict DNA types
+-- Filter & Map raw strings to strict DNA types
 -- | Purely converts a raw string "ATCG" into our strict [Base] type.
 -- | Ignores newlines, spaces, or invalid characters.
 parseDNAString :: String -> DNA
@@ -21,7 +21,7 @@ parseDNAString raw = map charToBase $ filter (`elem` "ACGTacgt") raw
         | toUpper c == 'T' = T
         | otherwise        = A -- Default fallback safety
 
--- [Task 3.4 Dependency] Helper to format risk score for display
+-- Helper to format risk score for display
 -- Used by Role 3 in the Frontend to show text labels
 formatRisk :: Double -> String
 formatRisk score

@@ -5,13 +5,13 @@ module Main (main) where
 
 import Web.Scotty
 import DataTypes
-import Processing (analyzePatient, analyzeMultiplePatients, generateClinicalReport, calculateMutationRate, analyzeMutationImpact)
+import Processing (analyzePatient, analyzeMultiplePatients)
 import Utils (parseDNAString)
 import Data.Text.Lazy (pack, Text)
 import qualified Data.Text as T
 import Control.Exception (try, SomeException, evaluate)
 import Network.Wai.Middleware.Cors (simpleCors)
-import Data.Aeson (Value(..), decode, (.:))
+import Data.Aeson (Value(..), decode)
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Vector as V
 import System.CPUTime (getCPUTime)
@@ -208,7 +208,7 @@ startServer = scotty 3000 $ do
                             "<a class='btn' href='/'>Back to Dashboard</a>"
                             ]
     
-    -- NEW ROUTE: Batch analysis with parallel processing
+    -- Batch analysis with parallel processing
     post "/analyze-batch" $ do
         bodyData <- body
         case decode bodyData of
@@ -247,7 +247,7 @@ startServer = scotty 3000 $ do
                     _ <- evaluate results
                     
                     endTime <- getCPUTime
-                    let timeDiff = fromIntegral (endTime - startTime) / (10^12) :: Double
+                    let timeDiff = fromIntegral (endTime - startTime) / 1000000000000 :: Double
                     
                     return (results, cores, timeDiff)
 
@@ -285,22 +285,22 @@ startServer = scotty 3000 $ do
     extractPatient _ = ("unknown", "")
 
 -- ... (rest of the file remains the same)
--- [Task 3.4] HTML Helper: Convert Report to HTML list item
--- [Task 3.7] ADVANCED: Protein Display added to HTML with enhanced statistics
+-- HTML Helper: Convert Report to HTML list item
+-- Protein Display added to HTML with enhanced statistics
 resultToHtml :: AnalysisReport -> Text
-resultToHtml (pid, muts, score, prot) = 
+resultToHtml (pid, muts, riskScore, prot) = 
     let
         mutCount = length muts
         criticalMuts = length $ filter (\m -> severity m == Critical) muts
         highMuts = length $ filter (\m -> severity m == High) muts
-        riskCategory = if score > 100 then "🔴 Critical" 
-                       else if score > 50 then "🟠 High"
-                       else if score > 20 then "🟡 Medium"
+        riskCategory = if riskScore > 100 then "🔴 Critical" 
+                       else if riskScore > 50 then "🟠 High"
+                       else if riskScore > 20 then "🟡 Medium"
                        else "🟢 Low"
     in pack $ "<li class='card'>" ++
            "<div class='card-header'>" ++
            "<h2>🧬 " ++ pid ++ "</h2>" ++
-           "<div class='risk-badge " ++ (if score > 50 then "high-risk" else "low-risk") ++ "'>" ++ riskCategory ++ "</div>" ++
+           "<div class='risk-badge " ++ (if riskScore > 50 then "high-risk" else "low-risk") ++ "'>" ++ riskCategory ++ "</div>" ++
            "</div>" ++
            
            -- Main Statistics Grid
@@ -311,7 +311,7 @@ resultToHtml (pid, muts, score, prot) =
            "</div>" ++
            "<div class='stat-item'>" ++
            "<span class='stat-label'>⚠️ Risk Score</span>" ++
-           "<span class='stat-value risk-score'>" ++ show score ++ "</span>" ++
+           "<span class='stat-value risk-score'>" ++ show riskScore ++ "</span>" ++
            "</div>" ++
            "<div class='stat-item'>" ++
            "<span class='stat-label'>🔴 Critical</span>" ++
@@ -345,7 +345,7 @@ resultToHtml (pid, muts, score, prot) =
            "<div class='clinical-insights'>" ++
            "<h3>💡 Clinical Insights</h3>" ++
            "<div class='insights-content'>" ++
-           generateInsights score mutCount criticalMuts highMuts ++
+           generateInsights riskScore mutCount criticalMuts highMuts ++
            "</div>" ++
            "</div>" ++
            

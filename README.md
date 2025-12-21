@@ -3,14 +3,14 @@
 ## 👥 Group Members & Project Information
 
 **Group Members:**
-- [Student Name 1] - [Roll Number]
-- [Student Name 2] - [Roll Number]
-- [Student Name 3] - [Roll Number]
+- Iyenshi A.U.T. - RU/EG/2020/3975 
+- Rajapaksha R.P.M.R.- RU/EG/2020/4136
+- Aberuwan R.M.M.P.- RU/EG/2020/3797
+- Abesundara W.H.S. - RU/EG/2020/3798
 
 **Course:** Functional Programming  
 **Semester:** 8th Semester  
-**Project Title:** Genome Matcher - DNA Mutation Analysis & Risk Assessment System  
-**GitHub Repository:** [Genome-Matcher--Bioinformatics-Tool--Functional-Programming-Project](https://github.com/IyenshiAUT/Genome-Matcher--Bioinformatics-Tool--Functional-Programming-Project)
+**Project Title:** Genome Matcher - Bioinformatics Tool to compare DNA sequences to identify mutations or genetic matches 
 
 ---
 

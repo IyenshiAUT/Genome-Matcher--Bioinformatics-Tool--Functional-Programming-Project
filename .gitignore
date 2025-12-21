@@ -1,3 +1,25 @@
+# Stack build artifacts
 .stack-work/
 *.cabal
+!genome-matcher.cabal
+
+# Build outputs
+dist/
 dist-newstyle/
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Executable files
+*.exe
+*.dll
+*.so
+*.dylib
