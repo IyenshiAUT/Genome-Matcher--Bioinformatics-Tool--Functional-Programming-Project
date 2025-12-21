@@ -3,10 +3,10 @@
 ## 👥 Group Members & Project Information
 
 **Group Members:**
-- Iyenshi A.U.T. - RU/EG/2020/3975 
-- Rajapaksha R.P.M.R.- RU/EG/2020/4136
-- Aberuwan R.M.M.P.- RU/EG/2020/3797
-- Abesundara W.H.S. - RU/EG/2020/3798
+- Iyenshi A.U.T. - EG/2020/3975 
+- Rajapaksha R.P.M.R.- EG/2020/4136
+- Aberuwan R.M.M.P.- EG/2020/3797
+- Abesundara W.H.S. - EG/2020/3798
 
 **Course:** Functional Programming  
 **Semester:** 8th Semester  
